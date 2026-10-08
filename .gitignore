@@ -1,5 +1,5 @@
 #payslips
-.generated_payslips/
+generated_payslips/
 
 # database
 legislator_payslip_data.db
