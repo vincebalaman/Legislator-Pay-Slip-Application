@@ -1,53 +1,86 @@
-import sqlite3
-import database
+import database  # Uses your updated database.py module[cite: 2]
+from pdf_generator import generate_payslip_pdf
 
 
 def setup_application():
+    """Initializes database schema and views."""
     print("Initializing application database...")
-    database.init_db()
+    database.init_db()  #[cite: 2]
     print("Database setup complete.")
 
 
-def fetch_all_payslip_totals():
-    """Example helper to query calculated totals from the base view."""
+def seed_sample_data():
+    """Seeds sample data matching the provided image sample."""
     conn = database.get_connection()
-    conn.row_factory = sqlite3.Row  # Enables column access by name (dict-like)
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM v_payslip_totals")
-    records = cursor.fetchall()
+    # 1. Insert Employee (Vince Juliel Babman - #26)
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO employees (emp_code, full_name, position)
+        VALUES ('26', 'Vince Juliel Babman', 'Supervisor')
+    """
+    )
 
-    conn.close()
-    return records
+    # Get inserted/existing employee ID
+    cursor.execute("SELECT employee_id FROM employees WHERE emp_code = '26'")
+    employee_id = cursor.fetchone()[0]
 
+    # 2. Create Payslip Record Header
+    try:
+        cursor.execute(
+            """
+            INSERT INTO payslips (employee_id, pay_period, deductions, remarks)
+            VALUES (?, ?, ?, ?)
+        """,
+            (employee_id, "Aug. 15-21, 2024", 0.0, "Paid in full"),
+        )
+        payslip_id = cursor.lastrowid
 
-def fetch_monthly_company_summary():
-    """Example helper to fetch the company-level monthly payroll summary view."""
-    conn = database.get_connection()
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+        # 3. Insert Line Items matching handwritten details
+        cursor.execute(
+            """
+            INSERT INTO payslip_items (payslip_id, description, earnings, frequency)
+            VALUES (?, ?, ?, ?)
+        """,
+            (payslip_id, "7 days duty (with tasking)", 500.0, 7.0),
+        )
 
-    cursor.execute("SELECT * FROM v_monthly_company_summary")
-    summary = cursor.fetchall()
+        cursor.execute(
+            """
+            INSERT INTO payslip_items (payslip_id, description, earnings, frequency)
+            VALUES (?, ?, ?, ?)
+        """,
+            (payslip_id, "allowance for next week", 500.0, 1.0),
+        )
 
-    conn.close()
-    return summary
+        conn.commit()
+        print(f"Sample payslip created with ID: {payslip_id}")
+        return payslip_id
+
+    except database.sqlite3.IntegrityError:
+        # If payslip already exists for this period
+        cursor.execute(
+            "SELECT payslip_id FROM payslips WHERE employee_id = ? AND pay_period = ?",
+            (employee_id, "Aug. 15-21, 2024"),
+        )
+        existing_id = cursor.fetchone()[0]
+        conn.close()
+        return existing_id
 
 
 def main():
-    # 1. Run database initialization on startup
+    # Step 1: Initialize application database and views[cite: 2]
     setup_application()
 
-    # 2. Example usage / query verification
-    print("\n--- Testing Database Views ---")
-    
-    payslips = fetch_all_payslip_totals()
-    print(f"Total payslip records found: {len(payslips)}")
+    # Step 2: Populate sample database record matching the handwritten payslip
+    payslip_id = seed_sample_data()
 
-    company_summary = fetch_monthly_company_summary()
-    print(f"Total monthly summaries found: {len(company_summary)}")
-
-    # Add your GUI / CLI main application execution logic here
+    # Step 3: Generate PDF using the generator script
+    generate_payslip_pdf(
+        payslip_id=payslip_id,
+        output_filename="sample_legislator_payslip.pdf",
+    )
 
 
 if __name__ == "__main__":
