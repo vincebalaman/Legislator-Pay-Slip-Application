@@ -18,7 +18,7 @@ def seed_sample_data():
     cursor.execute(
         """
         INSERT OR IGNORE INTO employees (emp_code, full_name, position)
-        VALUES ('26', 'Vince Juliel Babman', 'Supervisor')
+        VALUES ('26', 'Vince Jalirl Balaman', 'Supervisor')
     """
     )
 
@@ -77,10 +77,7 @@ def main():
     payslip_id = seed_sample_data()
 
     # Step 3: Generate PDF using the generator script
-    generate_payslip_pdf(
-        payslip_id=payslip_id,
-        output_filename="sample_legislator_payslip.pdf",
-    )
+    generate_payslip_pdf(payslip_id=payslip_id)
 
 
 if __name__ == "__main__":

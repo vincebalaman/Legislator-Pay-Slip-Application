@@ -1,4 +1,5 @@
 import os
+import re
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import (
@@ -13,13 +14,11 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 import database  # Uses your updated database.py
 
-# Ensure output directory exists
-output_dir = "generated_payslips"
-os.makedirs(output_dir, exist_ok=True)
+_INVALID_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
-# Save PDF inside the folder
-file_path = os.path.join(output_dir, output_filename)
-doc = SimpleDocTemplate(file_path, ...)
+
+def _safe_filename_part(value: str) -> str:
+    return _INVALID_FILENAME_CHARS.sub("_", value).strip(" .") or "unknown"
 
 
 def get_payslip_data(payslip_id: int):
@@ -63,11 +62,25 @@ def generate_payslip_pdf(
         return False
 
     if output_filename is None:
-        output_filename = f"payslip_{header['emp_code']}_{header['pay_period']}.pdf"
+        employee_name = _safe_filename_part(header["full_name"])
+        pay_period = _safe_filename_part(header["pay_period"])
+        output_filename = f"{employee_name}_{pay_period}.pdf"
+    else:
+        output_filename = _INVALID_FILENAME_CHARS.sub(
+            "_", os.path.basename(output_filename)
+        ).strip(" .")
+        if not output_filename:
+            raise ValueError("output_filename must contain a valid filename")
+
+    output_dir = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "generated_payslips"
+    )
+    os.makedirs(output_dir, exist_ok=True)
+    file_path = os.path.join(output_dir, output_filename)
 
     # Setup document geometry
     doc = SimpleDocTemplate(
-        output_filename,
+        file_path,
         pagesize=letter,
         rightMargin=36,
         leftMargin=36,
@@ -285,5 +298,5 @@ def generate_payslip_pdf(
 
     # Build the PDF
     doc.build(story)
-    print(f"Payslip PDF successfully generated: {output_filename}")
+    print(f"Payslip PDF successfully generated: {file_path}")
     return True
